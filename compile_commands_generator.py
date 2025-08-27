@@ -4,12 +4,18 @@ import json
 import os
 import re
 import subprocess
+import sys
 from logging import warning
 from pathlib import Path
 from typing import List, Optional, Tuple, cast
 
 DEFAULT_CPP_SUFFIXES = (".c", ".cc", ".cpp", ".cxx")
 DEFAULT_CUDA_SUFFIXES = (".cu",)
+
+HISTORY_FILE = os.path.expanduser("~/.config/compile_commands_generator/history.json")
+DEFAULT_PLACEHOLDER_DIR = os.path.expanduser(
+    "~/.config/compile_commands_generator/placeholder_DO_NOT_EDIT"
+)
 
 
 def generate_compile_commands(
@@ -257,6 +263,93 @@ def generate_empty_cc_file(path: Path) -> None:
         # print(f"✅ Created empty C++ file at: {path / cc_name}")
 
 
+def generate(args):
+    proj_path = args.root
+    cpp_args = args.cpp_args
+    cuda_args = detect_cuda_args() + args.cuda_args
+    ignore_formats = args.ignore_formats
+    extra_cpp_suffixes = tuple(args.extra_cpp_suffixes)
+    extra_cuda_suffixes = tuple(args.extra_cuda_suffixes)
+
+    if args.require_torch or args.cutlass_root:
+        if args.require_torch:
+            torch_includes = torch_args()
+            cpp_args.extend(torch_includes)
+        if args.cutlass_root:
+            cutlass_includes = parse_cutlass(args.cutlass_root)
+            cpp_args.extend(cutlass_includes)
+
+        cuda_inherit_cpp = True
+    else:
+        cuda_inherit_cpp = args.cuda_inherit_cpp
+
+    cpp_args, cuda_args = share_includes(cpp_args, cuda_args)
+
+    def try_generate(proj_root: str, out_dir: str):
+        entry_count = generate_compile_commands(
+            proj_path=proj_root,
+            cpp_args=cpp_args,
+            cuda_args=cuda_args,
+            cuda_inherit_cpp=cuda_inherit_cpp,
+            ignore_formats=ignore_formats,
+            output_dir=out_dir,
+            extra_cpp_suffixes=extra_cpp_suffixes,
+            extra_cuda_suffixes=extra_cuda_suffixes,
+        )
+
+        return entry_count
+
+    entry_count = try_generate(proj_path, proj_path)
+
+    if entry_count == 0:
+        warning("⚠️ No valid source files found. Generating an empty placeholder file.")
+        generate_empty_cc_file(Path(args.placeholder_dir))
+
+        entry_count = try_generate(args.placeholder_dir, proj_path)
+        if entry_count == 0:
+            warning(
+                "⚠️ Still no valid source files found after generating placeholder. Did you set it to ignore the placeholder files?"
+            )
+        else:
+            print(
+                "✅ Successfully generated compile_commands.json with placeholder file included."
+            )
+
+
+def list_history():
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            history = json.load(f)
+    except FileNotFoundError:
+        print("No history recorded yet.")
+        return
+    for proj, cmd in history.items():
+        print(f"[{proj}] -> {cmd}")
+
+
+def load_last_command(project_root: str):
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            history = json.load(f)
+    except FileNotFoundError:
+        return None
+    return history.get(os.path.abspath(project_root))
+
+
+def save_last_command(project_root: str, argv: list[str]):
+    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            history = json.load(f)
+    except FileNotFoundError:
+        history = {}
+
+    history[os.path.abspath(project_root)] = " ".join(argv)
+
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+
+
 if __name__ == "__main__":
 
     def comma_split(arg: str) -> List[str]:
@@ -295,7 +388,7 @@ if __name__ == "__main__":
         help="If set, requires PyTorch to be installed and adds its include paths to the compile commands.",
     )
     parser.add_argument(
-        "--cutlass_root",
+        "--cutlass-root",
         "-cr",
         type=str,
         help="If set, requires CUTLASS to be installed and adds its include paths to the compile commands.",
@@ -310,7 +403,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--placeholder-dir",
         type=str,
-        default=os.path.expanduser("~") + "/.compile_commands.placeholder_DO_NOT_EDIT",
+        default=DEFAULT_PLACEHOLDER_DIR,
         help="Directory to create a placeholder file if no valid source files are found.",
     )
     parser.add_argument(
@@ -325,56 +418,35 @@ if __name__ == "__main__":
         default=[],
         help="Additional file suffixes to treat as CUDA source files. We basically include (.cu) by default.",
     )
+    parser.add_argument(
+        "--reuse",
+        "-rs",
+        action="store_true",
+        help="Reuse the last command used for this project.",
+    )
+    parser.add_argument(
+        "--list-history",
+        "-lh",
+        action="store_true",
+        help="List all recorded project commands.",
+    )
 
     args = parser.parse_args()
 
-    proj_path = args.root
-    cpp_args = args.cpp_args
-    cuda_args = detect_cuda_args() + args.cuda_args
-    ignore_formats = args.ignore_formats
-    extra_cpp_suffixes = tuple(args.extra_cpp_suffixes)
-    extra_cuda_suffixes = tuple(args.extra_cuda_suffixes)
+    if args.list_history:
+        list_history()
+        sys.exit(0)
 
-    if args.require_torch or args.cutlass_root:
-        if args.require_torch:
-            torch_includes = torch_args()
-            cpp_args.extend(torch_includes)
-        if args.cutlass_root:
-            cutlass_includes = parse_cutlass(args.cutlass_root)
-            cpp_args.extend(cutlass_includes)
-
-        cuda_inherit_cpp = True
+    project_root = args.root
+    if args.reuse:
+        argv = load_last_command(project_root)
+        if argv is None:
+            print("No history found for this project.")
+            sys.exit(1)
+        print(f"Reusing last command for {project_root}:")
+        cmd = sys.executable + " " + argv
+        print(cmd)
+        subprocess.call(cmd.split(), shell=False)
     else:
-        cuda_inherit_cpp = args.cuda_inherit_cpp
-
-    cpp_args, cuda_args = share_includes(cpp_args, cuda_args)
-
-    def try_generate(proj_root: str, out_dir: str):
-        entry_count = generate_compile_commands(
-            proj_path=proj_root,
-            cpp_args=cpp_args,
-            cuda_args=cuda_args,
-            cuda_inherit_cpp=cuda_inherit_cpp,
-            ignore_formats=args.ignore_formats,
-            output_dir=out_dir,
-            extra_cpp_suffixes=extra_cpp_suffixes,
-            extra_cuda_suffixes=extra_cuda_suffixes,
-        )
-
-        return entry_count
-
-    entry_count = try_generate(proj_path, proj_path)
-
-    if entry_count == 0:
-        warning("⚠️ No valid source files found. Generating an empty placeholder file.")
-        generate_empty_cc_file(Path(args.placeholder_dir))
-
-        entry_count = try_generate(args.placeholder_dir, proj_path)
-        if entry_count == 0:
-            warning(
-                "⚠️ Still no valid source files found after generating placeholder. Did you set it to ignore the placeholder files?"
-            )
-        else:
-            print(
-                "✅ Successfully generated compile_commands.json with placeholder file included."
-            )
+        save_last_command(project_root, sys.argv)
+        generate(args)
