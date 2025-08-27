@@ -73,9 +73,7 @@ pip install .
 
 ---
 
-## Usage
-
-### Common scenarios
+## Common Usage
 
 **C/C++ only**
 
@@ -174,6 +172,8 @@ compile-commands --root . --reuse
 This will look up the most recent command for the given project path and execute it again.
 Useful when you just want to refresh `compile_commands.json` with the same settings.
 
+---
+
 **List All Recorded Commands**
 
 You can also inspect the stored history:
@@ -191,6 +191,22 @@ This prints all recorded project paths and their corresponding last commands, fo
 
 This allows you to quickly copy, review, or reuse commands across multiple projects.
 
+---
+
+
+## Ignore Patterns Examples
+
+```bash
+# Ignore tests and build outputs
+--ignore-formats "*/tests/*,*.test.cpp,build/*,out/*"
+
+# Ignore vendored third-party trees
+--ignore-formats "third_party/*,external/*,vendor/*"
+```
+
+Patterns are matched against **paths relative to the project root**.
+
+---
 
 ## CLI Reference
 
@@ -285,19 +301,6 @@ clangd primarily cares about the **flags** (`-I`, `-D`, language/std settings, e
 
 ---
 
-## Ignore Patterns Examples
-
-```bash
-# Ignore tests and build outputs
---ignore-formats "*/tests/*,*.test.cpp,build/*,out/*"
-
-# Ignore vendored third-party trees
---ignore-formats "third_party/*,external/*,vendor/*"
-```
-
-Patterns are matched against **paths relative to the project root**.
-
----
 
 ## Design Notes & Limitations
 
