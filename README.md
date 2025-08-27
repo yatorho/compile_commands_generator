@@ -33,10 +33,13 @@ It scans your project for C/C++ and CUDA sources, builds reasonable per-file “
 
 ```bash
 # From your project root
-python compile_commands_generator.py \
+python -m compile_commands_generator \
   --root . \
   --cpp-args "-std=c++17,-Iinclude" \
   --ignore-formats "*.test.cpp,*/tests/*"
+
+# or
+compile-commands -r . --cpp-args "-Iinclude"
 ```
 
 That’s it. You’ll get:
@@ -54,10 +57,9 @@ Open the project in your editor (e.g. VS Code + clangd) and enjoy completions.
 This script is standalone—no packaging required.
 
 ```bash
-# Option 1: copy the script into your repo and run it
-python compile_commands_generator.py --help
+gti clone https://github.com/yatorho/compile_commands_generator.git
 
-# Option 2: keep it somewhere on your PATH and run it from projects
+pip install .
 ```
 
 **Requirements**
@@ -78,7 +80,7 @@ python compile_commands_generator.py --help
 **C/C++ only**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --cpp-args "-std=c++20,-Iinclude,-DNDEBUG" \
   --ignore-formats "*.test.cpp,*/third_party/*"
@@ -87,7 +89,7 @@ python compile_commands_generator.py \
 **C++ + CUDA (auto-detect CUDA)**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --cpp-args "-std=c++17,-Iinclude"
 # The script will try to detect nvcc, CUDA path, and GPU arch automatically.
@@ -96,7 +98,7 @@ python compile_commands_generator.py \
 **C++ + CUDA (add your own CUDA flags as well)**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --cpp-args "-std=c++17,-Iinclude" \
   --cuda-args "-I/usr/local/cuda/include,-DUSE_CUDA=1"
@@ -105,7 +107,7 @@ python compile_commands_generator.py \
 **CUDA files NOT inheriting C++ flags**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --cpp-args "-std=c++17,-Iinclude" \
   --no-cuda-inherit-cpp
@@ -114,7 +116,7 @@ python compile_commands_generator.py \
 **Add PyTorch headers**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --require-torch
 # Adds -I<site-packages>/torch and common torch include subdirs, plus your Python include dir.
@@ -123,7 +125,7 @@ python compile_commands_generator.py \
 **Add CUTLASS headers**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --cutlass_root /path/to/cutlass
 ```
@@ -132,7 +134,7 @@ python compile_commands_generator.py \
 
 ```bash
 # Treat .C and .c++ as C/C++ sources, and .cuh as CUDA sources
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --extra-cpp-suffixes ".C,.c++" \
   --extra-cuda-suffixes ".cuh"
@@ -145,7 +147,7 @@ clangd indexes **compilation units** (source files) and then follows the headers
 **Typical flow**
 
 ```bash
-python compile_commands_generator.py \
+compile_commands \
   --root . \
   --cpp-args "-Iinclude,-Ithird_party/some_lib/include"
 ```
@@ -155,6 +157,40 @@ python compile_commands_generator.py \
 * If you prefer a C++ compilation unit specifically, you can add your own tiny `placeholder.cc` (empty file) anywhere in the repo and re-run the tool; it will be picked up like any other source file.
 
 > Note: The placeholder’s extension is `.cu` by default. That’s okay for indexing; clangd mainly cares about the flags and include paths. If your project is strictly C++, adding a trivial `.cc` source file is also a fine approach.
+
+
+## Command History Support
+
+To simplify workflow across multiple projects, compile-commands-generator automatically remembers the last command you used for each project root. This prevents mixing up long sets of flags and makes it easy to repeat your setup.
+
+**Reuse the Last Command**
+
+If you want to re-run the exact same command you previously used in the current project directory:
+
+```bash
+compile-commands --root . --reuse
+```
+
+This will look up the most recent command for the given project path and execute it again.
+Useful when you just want to refresh `compile_commands.json` with the same settings.
+
+**List All Recorded Commands**
+
+You can also inspect the stored history:
+
+```bash
+compile-commands --list-history
+```
+
+This prints all recorded project paths and their corresponding last commands, for example:
+
+```txt
+[/home/user/projs/mirage] -> python -m compile_commands_generator -r . -cc=-Iinclude,-I/home/user/projs/mirage/include -rt -cr=/home/user/projs/mirage/deps/cutlass -igs=deps/*,build/*
+[/home/user/projs/another_project] -> python -m compile_commands_generator -r . -cc=-Iinclude,-DNDEBUG
+```
+
+This allows you to quickly copy, review, or reuse commands across multiple projects.
+
 
 ## CLI Reference
 
@@ -187,7 +223,15 @@ python compile_commands_generator.py \
                              Defaults already include .cu
 
 --placeholder-dir <path>     Where to create a placeholder file when no sources
-                             are found (defaults to ~/.compile_commands.placeholder_DO_NOT_EDIT).
+                             are found (defaults to 
+                             ~/.config/compile_commands_generator/placeholder_DO_NOT_EDIT.)
+      
+--reuse, -rs                 Reuse the last recorded command for the given project root.
+                             Useful to quickly regenerate compile_commands.json
+                             with the same settings as before.
+                            
+--list-history, -lh          Print all recorded project roots and their last commands.
+                             Allows reviewing or copying past invocations.
 ```
 
 **Notes & Behaviour**

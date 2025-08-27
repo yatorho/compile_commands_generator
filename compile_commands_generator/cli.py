@@ -363,7 +363,6 @@ def main():
         "--root",
         "-r",
         type=str,
-        required=True,
         help="Path to the project directory.",
     )
     parser.add_argument(
@@ -443,7 +442,7 @@ def main():
         list_history()
         sys.exit(0)
 
-    project_root = args.root
+    project_root = args.root or "."
     if args.reuse:
         argv = load_last_command(project_root)
         if argv is None:

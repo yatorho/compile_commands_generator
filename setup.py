@@ -7,5 +7,5 @@ setup(
     entry_points={
         "console_scripts": ["compile_commands=compile_commands_generator.cli:main"]
     },
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )
