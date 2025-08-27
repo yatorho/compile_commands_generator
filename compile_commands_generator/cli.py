@@ -350,7 +350,7 @@ def save_last_command(project_root: str, argv: list[str]):
         json.dump(history, f, indent=2)
 
 
-if __name__ == "__main__":
+def main():
 
     def comma_split(arg: str) -> List[str]:
         """Helper to split comma-separated arguments."""
@@ -359,7 +359,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Generate compile_commands.json for C++/CUDA projects."
     )
-    parser.add_argument("--root", "-r", type=str, help="Path to the project directory.")
+    parser.add_argument(
+        "--root",
+        "-r",
+        type=str,
+        required=True,
+        help="Path to the project directory.",
+    )
     parser.add_argument(
         "--cpp-args",
         "-cc",
@@ -441,7 +447,7 @@ if __name__ == "__main__":
     if args.reuse:
         argv = load_last_command(project_root)
         if argv is None:
-            print("No history found for this project.")
+            print(f"No history found for project: [{project_root}].")
             sys.exit(1)
         print(f"Reusing last command for {project_root}:")
         cmd = sys.executable + " " + argv
@@ -450,3 +456,7 @@ if __name__ == "__main__":
     else:
         save_last_command(project_root, sys.argv)
         generate(args)
+
+
+if __name__ == "__main__":
+    main()
