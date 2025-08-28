@@ -57,7 +57,7 @@ Open the project in your editor (e.g. VS Code + clangd) and enjoy completions.
 This script is standalone—no packaging required.
 
 ```bash
-gti clone https://github.com/yatorho/compile_commands_generator.git
+git clone https://github.com/yatorho/compile_commands_generator.git
 
 pip install .
 ```
