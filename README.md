@@ -58,8 +58,11 @@ This script is standalone—no packaging required.
 
 ```bash
 git clone https://github.com/yatorho/compile_commands_generator.git
-
+cd compile_commands_generator
 pip install .
+
+# or
+pip install git+https://github.com/yatorho/compile_commands_generator.git
 ```
 
 **Requirements**
