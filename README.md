@@ -21,7 +21,7 @@ It scans your project for C/C++ and CUDA sources, builds reasonable per-file “
 * 🤝 Optional integration headers:
 
   * `--require-torch` adds PyTorch headers (and your Python include dir)
-  * `--cutlass_root` adds CUTLASS headers (verifies typical include folders)
+  * `--cutlass-root` adds CUTLASS headers (verifies typical include folders)
 * 🧱 Include sharing: `-I...` flags are kept in sync between C++ and CUDA command lines
 * 🚫 Ignore patterns: exclude files/folders with glob patterns (e.g. tests, vendored code)
 * 🧩 Extensible suffixes: add extra source file extensions via `--extra-cpp-suffixes` and `--extra-cuda-suffixes`
@@ -128,7 +128,7 @@ compile_commands \
 ```bash
 compile_commands \
   --root . \
-  --cutlass_root /path/to/cutlass
+  --cutlass-root /path/to/cutlass
 ```
 
 **Support additional file suffixes**
@@ -227,7 +227,7 @@ Patterns are matched against **paths relative to the project root**.
 
 --require-torch, -rt         Add PyTorch include paths (torch + Python headers).
 
---cutlass_root, -cr <path>   Add CUTLASS include paths from the given root.
+--cutlass-root, -cr <path>   Add CUTLASS include paths from the given root.
 
 --ignore-formats, -igs "<g1,g2,...>"
                              Glob patterns to ignore during the scan.
@@ -256,7 +256,7 @@ Patterns are matched against **paths relative to the project root**.
 **Notes & Behaviour**
 
 * The tool always tries to detect CUDA first. If detection fails, it prints a warning and continues.
-* If you pass `--require-torch` or `--cutlass_root`, CUDA files will **automatically inherit** C/C++ args (same as default) to keep include flags aligned.
+* If you pass `--require-torch` or `--cutlass-root`, CUDA files will **automatically inherit** C/C++ args (same as default) to keep include flags aligned.
 * The generated `compile_commands.json` is written to your **project root**.
 
 ---
@@ -297,7 +297,7 @@ clangd primarily cares about the **flags** (`-I`, `-D`, language/std settings, e
   The tool creates an empty **placeholder source file** (`.cu` by default) in `--placeholder-dir` and includes it in `compile_commands.json`. Be sure to pass the include directories you want indexed via `--cpp-args "-Ipath1,-Ipath2"` (and/or `--cuda-args`). This is intentional for **header-only** projects: clangd only parses headers when they’re reachable from a compilation unit that has the right `-I...` paths. If you prefer a pure C++ unit, add a tiny `placeholder.cc` and re-run the script.
 
 * **clangd still can’t find some headers**
-  Add more `-I...` via `--cpp-args` (and/or `--cuda-args`). You can also use `--require-torch` or `--cutlass_root` when relevant.
+  Add more `-I...` via `--cpp-args` (and/or `--cuda-args`). You can also use `--require-torch` or `--cutlass-root` when relevant.
 
 * **Windows**
   The script uses `which` and POSIX paths. Run in MSYS2/Git Bash/WSL or adapt the code for native Windows.
